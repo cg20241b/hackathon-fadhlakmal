@@ -15,11 +15,11 @@ camera.position.z = 5;
 // Central Glowing Cube
 const cubeGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
 
-// Custom ShaderMaterial for glowing effect
+// Shader material for the cube
 const glowShader = {
     uniforms: {
-        "c": { type: "f", value: 1.0 },
-        "p": { type: "f", value: 1.4 },
+        "c": { type: "f", value: 1.0 }, // Controls the sharpness of the glow intensity
+        "p": { type: "f", value: 1.4 }, // Exponent for intensity falloff
         glowColor: { type: "c", value: new THREE.Color(0xffffff) },
         viewVector: { type: "v3", value: camera.position }
     },
@@ -31,7 +31,7 @@ const glowShader = {
         void main() {
             vec3 vNormal = normalize( normalMatrix * normal );
             vec3 vNormel = normalize( normalMatrix * viewVector );
-            intensity = pow( c - dot(vNormal, vNormel), p );
+            intensity = pow( c - dot(vNormal, vNormel), p ); // Calculate glow intensity
             gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
         }
     `,
@@ -39,12 +39,12 @@ const glowShader = {
         uniform vec3 glowColor;
         varying float intensity;
         void main() {
-            vec3 glow = glowColor * intensity;
-            gl_FragColor = vec4( glow, 1.0 );
+            vec3 glow = glowColor * intensity; // Apply glow effect
+            gl_FragColor = vec4( glow, 1.0 ); // Final color output
         }
     `,
-    side: THREE.BackSide,
-    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide, // Render the glow on the inside faces of the cube
+    blending: THREE.AdditiveBlending, // Additive blending for light emission effect
     transparent: true
 };
 
@@ -55,12 +55,12 @@ scene.add(cube);
 // Load font and create text meshes
 const loader = new FontLoader();
 loader.load('helvetiker_bold.typeface.json', function (font) {
-    const ambientIntensity = 0.2 + 0.028; // last 3 digit 028
+    const ambientIntensity = 0.2 + 0.028; // last 3 digit of NRP - 028
 
     const alphabetMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            ambientIntensity: { type: 'f', value: ambientIntensity },
-            lightPosition: { type: 'v3', value: cube.position },
+            ambientIntensity: { type: 'f', value: ambientIntensity }, // Ambient light intensity
+            lightPosition: { type: 'v3', value: cube.position }, // Position of the point light which is the central cube
             viewVector: { type: 'v3', value: camera.position }
         },
         vertexShader: `
@@ -79,18 +79,25 @@ loader.load('helvetiker_bold.typeface.json', function (font) {
             varying vec3 vNormal;
             varying vec3 vPositionNormal;
             void main() {
-                vec3 ambient = ambientIntensity * vec3(1.0, 0.5, 0.0); // Example color
+                // Ambient lighting component
+                vec3 ambient = ambientIntensity * vec3(1.0, 0.5, 0.0);
+
+                // Diffuse lighting component
                 vec3 lightDirection = normalize(lightPosition - vPositionNormal);
                 float diffuseStrength = max(dot(vNormal, lightDirection), 0.0);
-                vec3 diffuse = diffuseStrength * vec3(1.0, 0.5, 0.0); // Example color
+                vec3 diffuse = diffuseStrength * vec3(1.0, 0.5, 0.0);
+
+                // Specular lighting component
                 vec3 viewDirection = normalize(viewVector - vPositionNormal);
                 vec3 reflectDirection = reflect(-lightDirection, vNormal);
-                float specularStrength = pow(max(dot(viewDirection, reflectDirection), 0.0), 32.0);
-                vec3 specular = specularStrength * vec3(1.0, 1.0, 1.0); // White specular highlight
+                float specularStrength = pow(max(dot(viewDirection, reflectDirection), 0.0), 16.0);
+                vec3 specular = specularStrength * vec3(0.2, 0.2, 0.2);
+                
+                // Combine all components
                 gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
             }
         `,
-        side: THREE.FrontSide,
+        side: THREE.FrontSide, // Render only the front-facing polygons
         transparent: true
     });
 
@@ -116,14 +123,21 @@ loader.load('helvetiker_bold.typeface.json', function (font) {
             varying vec3 vNormal;
             varying vec3 vPositionNormal;
             void main() {
-                vec3 ambient = ambientIntensity * vec3(0.0, 0.5, 1.0); // Example complementary color
+                // Ambient lighting component
+                vec3 ambient = ambientIntensity * vec3(0.0, 0.5, 1.0);
+
+                // Diffuse lighting component
                 vec3 lightDirection = normalize(lightPosition - vPositionNormal);
                 float diffuseStrength = max(dot(vNormal, lightDirection), 0.0);
-                vec3 diffuse = diffuseStrength * vec3(0.0, 0.5, 1.0); // Example complementary color
+                vec3 diffuse = diffuseStrength * vec3(0.0, 0.5, 1.0);
+
+                // Specular lighting component
                 vec3 viewDirection = normalize(viewVector - vPositionNormal);
                 vec3 reflectDirection = reflect(-lightDirection, vNormal);
                 float specularStrength = pow(max(dot(viewDirection, reflectDirection), 0.0), 64.0);
-                vec3 specular = specularStrength * vec3(0.0, 0.5, 1.0); // Metal-like specular highlight
+                vec3 specular = specularStrength * vec3(1.0, 1.0, 1.0); // Metal-like specular highlight
+                
+                // Combine all components
                 gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
             }
         `,
