@@ -12,43 +12,50 @@ document.body.appendChild( renderer.domElement );
 
 camera.position.z = 5;
 
-const vert = `
-        varying vec3 vNormal;
-        varying vec3 vPositionNormal;
-        void main() {
-            vNormal = normalize(normalMatrix * normal);
-            vPositionNormal = normalize((modelViewMatrix * vec4(position, 1.0)).xyz);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `;
-    
-const frag = `
-        uniform vec3 glowColor;
-        uniform vec3 viewVector;
-        varying vec3 vNormal;
-        varying vec3 vPositionNormal;
-        void main() {
-            float intensity = pow(0.5 - dot(vNormal, vPositionNormal), 2.0);
-            gl_FragColor = vec4(glowColor * intensity, 1.0);
-        }
-    `;
-
 // Central Glowing Cube
 const cubeGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-const cubeMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff } );
+
+// Custom ShaderMaterial for glowing effect
+const glowShader = {
+    uniforms: {
+        "c": { type: "f", value: 1.0 },
+        "p": { type: "f", value: 1.4 },
+        glowColor: { type: "c", value: new THREE.Color(0xffffff) },
+        viewVector: { type: "v3", value: camera.position }
+    },
+    vertexShader: `
+        uniform vec3 viewVector;
+        uniform float c;
+        uniform float p;
+        varying float intensity;
+        void main() {
+            vec3 vNormal = normalize( normalMatrix * normal );
+            vec3 vNormel = normalize( normalMatrix * viewVector );
+            intensity = pow( c - dot(vNormal, vNormel), p );
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+    `,
+    fragmentShader: `
+        uniform vec3 glowColor;
+        varying float intensity;
+        void main() {
+            vec3 glow = glowColor * intensity;
+            gl_FragColor = vec4( glow, 1.0 );
+        }
+    `,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    transparent: true
+};
+
+const cubeMaterial = new THREE.ShaderMaterial(glowShader);
 const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 scene.add(cube);
-
-const pointLight = new THREE.PointLight(0xffffff, 10, 100);
-pointLight.position.set(0, 0, 0);
-cube.add(pointLight);
 
 // Load font and create text meshes
 const loader = new FontLoader();
 loader.load('helvetiker_bold.typeface.json', function (font) {
-    const studentID = '028';
-    const lastThreeDigits = parseInt(studentID);
-    const ambientIntensity = 0.2 + (lastThreeDigits / 1000);
+    const ambientIntensity = 0.2 + 0.028; // last 3 digit 028
 
     const alphabetMaterial = new THREE.ShaderMaterial({
         uniforms: {
@@ -128,7 +135,7 @@ loader.load('helvetiker_bold.typeface.json', function (font) {
     const textGeometry = new TextGeometry('L', {
         font: font,
         size: 1,
-        height: 0.2,
+        depth: 0.2,
     });
     const textMesh = new THREE.Mesh(textGeometry, alphabetMaterial);
     textMesh.position.set(-2, 0, 0); // Position on the left side
@@ -138,7 +145,7 @@ loader.load('helvetiker_bold.typeface.json', function (font) {
     const digitGeometry = new TextGeometry('8', {
         font: font,
         size: 1,
-        height: 0.2,
+        depth: 0.2,
     });
     const digitMesh = new THREE.Mesh(digitGeometry, digitMaterial);
     digitMesh.position.set(2, 0, 0); // Position on the right side
