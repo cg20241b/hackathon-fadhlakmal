@@ -39,19 +39,88 @@ const cubeMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff } );
 const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 scene.add(cube);
 
+const pointLight = new THREE.PointLight(0xffffff, 10, 100);
+pointLight.position.set(0, 0, 0);
+cube.add(pointLight);
+
 // Load font and create text meshes
 const loader = new FontLoader();
 loader.load('helvetiker_bold.typeface.json', function (font) {
-    // const textMaterial = new THREE.MeshBasicMaterial({ color: 0xfa8734 });
-    const textMaterial = new THREE.ShaderMaterial({
+    const studentID = '028';
+    const lastThreeDigits = parseInt(studentID);
+    const ambientIntensity = 0.2 + (lastThreeDigits / 1000);
+
+    const alphabetMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            glowColor: { type: "c", value: new THREE.Color(0xfa8734) },
-            viewVector: { type: "v3", value: camera.position }
+            ambientIntensity: { type: 'f', value: ambientIntensity },
+            lightPosition: { type: 'v3', value: cube.position },
+            viewVector: { type: 'v3', value: camera.position }
         },
-        vertexShader: vert,
-        fragmentShader: frag,
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vPositionNormal;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                vPositionNormal = normalize((modelViewMatrix * vec4(position, 1.0)).xyz);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float ambientIntensity;
+            uniform vec3 lightPosition;
+            uniform vec3 viewVector;
+            varying vec3 vNormal;
+            varying vec3 vPositionNormal;
+            void main() {
+                vec3 ambient = ambientIntensity * vec3(1.0, 0.5, 0.0); // Example color
+                vec3 lightDirection = normalize(lightPosition - vPositionNormal);
+                float diffuseStrength = max(dot(vNormal, lightDirection), 0.0);
+                vec3 diffuse = diffuseStrength * vec3(1.0, 0.5, 0.0); // Example color
+                vec3 viewDirection = normalize(viewVector - vPositionNormal);
+                vec3 reflectDirection = reflect(-lightDirection, vNormal);
+                float specularStrength = pow(max(dot(viewDirection, reflectDirection), 0.0), 32.0);
+                vec3 specular = specularStrength * vec3(1.0, 1.0, 1.0); // White specular highlight
+                gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
+            }
+        `,
         side: THREE.FrontSide,
-        blending: THREE.AdditiveBlending,
+        transparent: true
+    });
+
+    const digitMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            ambientIntensity: { type: 'f', value: ambientIntensity },
+            lightPosition: { type: 'v3', value: cube.position },
+            viewVector: { type: 'v3', value: camera.position }
+        },
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vPositionNormal;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                vPositionNormal = normalize((modelViewMatrix * vec4(position, 1.0)).xyz);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float ambientIntensity;
+            uniform vec3 lightPosition;
+            uniform vec3 viewVector;
+            varying vec3 vNormal;
+            varying vec3 vPositionNormal;
+            void main() {
+                vec3 ambient = ambientIntensity * vec3(0.0, 0.5, 1.0); // Example complementary color
+                vec3 lightDirection = normalize(lightPosition - vPositionNormal);
+                float diffuseStrength = max(dot(vNormal, lightDirection), 0.0);
+                vec3 diffuse = diffuseStrength * vec3(0.0, 0.5, 1.0); // Example complementary color
+                vec3 viewDirection = normalize(viewVector - vPositionNormal);
+                vec3 reflectDirection = reflect(-lightDirection, vNormal);
+                float specularStrength = pow(max(dot(viewDirection, reflectDirection), 0.0), 64.0);
+                vec3 specular = specularStrength * vec3(0.0, 0.5, 1.0); // Metal-like specular highlight
+                gl_FragColor = vec4(ambient + diffuse + specular, 1.0);
+            }
+        `,
+        side: THREE.FrontSide,
         transparent: true
     });
 
@@ -61,30 +130,16 @@ loader.load('helvetiker_bold.typeface.json', function (font) {
         size: 1,
         height: 0.2,
     });
-    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    const textMesh = new THREE.Mesh(textGeometry, alphabetMaterial);
     textMesh.position.set(-2, 0, 0); // Position on the left side
     scene.add(textMesh);
-
-    // const digitMaterial = new THREE.MeshBasicMaterial({ color: 0x0578cb });
-    const digitMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            glowColor: { type: "c", value: new THREE.Color(0x0578cb) },
-            viewVector: { type: "v3", value: camera.position }
-        },
-        vertexShader: vert,
-        fragmentShader: frag,
-        side: THREE.FrontSide,
-        blending: THREE.AdditiveBlending,
-        transparent: true
-    });
 
     // Create '8' mesh
     const digitGeometry = new TextGeometry('8', {
         font: font,
         size: 1,
         height: 0.2,
-    });    
-    
+    });
     const digitMesh = new THREE.Mesh(digitGeometry, digitMaterial);
     digitMesh.position.set(2, 0, 0); // Position on the right side
     scene.add(digitMesh);
